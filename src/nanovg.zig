@@ -3,10 +3,8 @@ const std = @import("std");
 /// Internal implementation, available for custom backends
 pub const internal = @import("internal.zig");
 
-/// OpenGL backend provided by default
-pub const gl = @import("nanovg_gl.zig");
-// pub const sokol = @import("nanovg_sokol.zig");
-pub const sokol = @import("nanovg_sokol-gpt.zig");
+/// Sokol Backend The Only Backend you will ever need.
+pub const sokol = @import("nanovg_sokol.zig");
 
 const Self = @This();
 

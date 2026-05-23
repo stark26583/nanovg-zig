@@ -9,6 +9,7 @@ pub fn build(b: *std.Build) !void {
     const dep_sokol = b.dependency("sokol", .{
         .target = target,
         .optimize = optimize,
+        .vulkan = true,
     });
 
     const nanovg_mod = b.addModule("nanovg", .{
@@ -48,10 +49,15 @@ pub fn build(b: *std.Build) !void {
         _ = installDemo(b, target, optimize, "demo_fbo", "examples/example_fbo.zig", nanovg_mod);
         _ = installDemo(b, target, optimize, "demo_clip", "examples/example_clip.zig", nanovg_mod);
         _ = installDemo(b, target, optimize, "demo_blur", "examples/example_blur.zig", nanovg_mod);
+        const demo_sokol = installDemoSokol(b, target, optimize, "demo_sokol", nanovg_mod, dep_sokol);
 
         const run_demo_glfw = b.addRunArtifact(demo_glfw);
-        const run_step = b.step("run", "Run the demo");
+        const run_step = b.step("run-glfw", "Run the Gl demo");
         run_step.dependOn(&run_demo_glfw.step);
+
+        const run_demo_sokol = b.addRunArtifact(demo_sokol);
+        const run_step_ = b.step("run", "Run the Sokol demo");
+        run_step_.dependOn(&run_demo_sokol.step);
     }
 }
 
@@ -97,6 +103,54 @@ fn installDemo(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
             },
         }
     }
+    b.installArtifact(demo);
+    return demo;
+}
+
+fn installDemoSokol(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, name: []const u8, nanovg_mod: *std.Build.Module, dep_sokol: *std.Build.Dependency) *std.Build.Step.Compile {
+    const demo = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/example_sokol.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    demo.root_module.addImport("nanovg", nanovg_mod);
+    demo.root_module.addImport("sokol", dep_sokol.module("sokol"));
+
+    // TODO: multiple targets
+    // if (target.result.cpu.arch.isWasm()) {
+    //     demo.rdynamic = true;
+    //     demo.entry = .disabled;
+    // } else {
+    //     demo.root_module.addImport("glfw_gl", glfwgl);
+    //     demo.root_module.addIncludePath(b.path("lib/gl2/include"));
+    //     demo.root_module.addCSourceFile(.{ .file = b.path("lib/gl2/src/glad.c"), .flags = &.{} });
+    //     switch (target.result.os.tag) {
+    //         .windows => {
+    //             b.installBinFile("glfw3.dll", "glfw3.dll");
+    //             demo.root_module.linkSystemLibrary("glfw3dll", .{});
+    //             demo.root_module.linkSystemLibrary("opengl32", .{});
+    //         },
+    //         .macos => {
+    //             demo.root_module.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+    //             demo.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+    //             demo.root_module.linkSystemLibrary("glfw", .{});
+    //             demo.root_module.linkFramework("OpenGL", .{});
+    //         },
+    //         .linux => {
+    //             demo.root_module.linkSystemLibrary("glfw3", .{});
+    //             demo.root_module.linkSystemLibrary("GL", .{});
+    //             demo.root_module.linkSystemLibrary("X11", .{});
+    //         },
+    //         else => {
+    //             std.log.warn("Unsupported target: {}", .{target});
+    //             demo.root_module.linkSystemLibrary("glfw3", .{});
+    //             demo.root_module.linkSystemLibrary("GL", .{});
+    //         },
+    //     }
+    // }
     b.installArtifact(demo);
     return demo;
 }

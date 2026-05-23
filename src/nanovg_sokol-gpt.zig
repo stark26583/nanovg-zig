@@ -320,7 +320,7 @@ fn flushTextureUpdates(ctx: *Context) void {
 
         var img_data: sg.ImageData = .{};
         img_data.mip_levels[0] = .{ .ptr = data.ptr, .size = total_size };
-        sg.updateImage(tex.img, &img_data);
+        sg.updateImage(tex.img, img_data);
         tex.dirty = false;
     }
 }
@@ -329,24 +329,24 @@ fn setUniforms(ctx: *Context, uniform_offset: usize, image: i32) void {
     const frag = fragUniformPtr(ctx, uniform_offset);
 
     const vs_params = shaders.VsParams{
-        .viewSize = .{ ctx.view[0], ctx.view[1] },
+        .viewSize = .{ .x = ctx.view[0], .y = ctx.view[1] },
     };
-    sg.applyUniforms(shaders.UB_vs_params, &sg.Range{ .ptr = &vs_params, .size = @sizeOf(@TypeOf(vs_params)) });
+    sg.applyUniforms(shaders.UB_vs_params, sg.Range{ .ptr = &vs_params, .size = @sizeOf(@TypeOf(vs_params)) });
 
     const fs_params = shaders.FsParams{
-        .scissorMat0 = .{ frag.scissorMat[0], frag.scissorMat[1], frag.scissorMat[2], frag.scissorMat[3] },
-        .scissorMat1 = .{ frag.scissorMat[4], frag.scissorMat[5], frag.scissorMat[6], frag.scissorMat[7] },
-        .scissorMat2 = .{ frag.scissorMat[8], frag.scissorMat[9], frag.scissorMat[10], frag.scissorMat[11] },
-        .paintMat0 = .{ frag.paintMat[0], frag.paintMat[1], frag.paintMat[2], frag.paintMat[3] },
-        .paintMat1 = .{ frag.paintMat[4], frag.paintMat[5], frag.paintMat[6], frag.paintMat[7] },
-        .paintMat2 = .{ frag.paintMat[8], frag.paintMat[9], frag.paintMat[10], frag.paintMat[11] },
-        .innerCol = .{ frag.innerCol[0], frag.innerCol[1], frag.innerCol[2], frag.innerCol[3] },
-        .outerCol = .{ frag.outerCol[0], frag.outerCol[1], frag.outerCol[2], frag.outerCol[3] },
-        .scissorExtScale = .{ frag.scissorExt[0], frag.scissorExt[1], frag.scissorScale[0], frag.scissorScale[1] },
-        .extentRadiusFeather = .{ frag.extent[0], frag.extent[1], frag.radius, frag.feather },
-        .params = .{ frag.strokeMult, frag.strokeThr, frag.texType, frag.shader_type },
+        .scissorMat0 = .{ .x = frag.scissorMat[0], .y = frag.scissorMat[1], .z = frag.scissorMat[2], .w = frag.scissorMat[3] },
+        .scissorMat1 = .{ .x = frag.scissorMat[4], .y = frag.scissorMat[5], .z = frag.scissorMat[6], .w = frag.scissorMat[7] },
+        .scissorMat2 = .{ .x = frag.scissorMat[8], .y = frag.scissorMat[9], .z = frag.scissorMat[10], .w = frag.scissorMat[11] },
+        .paintMat0 = .{ .x = frag.paintMat[0], .y = frag.paintMat[1], .z = frag.paintMat[2], .w = frag.paintMat[3] },
+        .paintMat1 = .{ .x = frag.paintMat[4], .y = frag.paintMat[5], .z = frag.paintMat[6], .w = frag.paintMat[7] },
+        .paintMat2 = .{ .x = frag.paintMat[8], .y = frag.paintMat[9], .z = frag.paintMat[10], .w = frag.paintMat[11] },
+        .innerCol = .{ .x = frag.innerCol[0], .y = frag.innerCol[1], .z = frag.innerCol[2], .w = frag.innerCol[3] },
+        .outerCol = .{ .x = frag.outerCol[0], .y = frag.outerCol[1], .z = frag.outerCol[2], .w = frag.outerCol[3] },
+        .scissorExtScale = .{ .x = frag.scissorExt[0], .y = frag.scissorExt[1], .z = frag.scissorScale[0], .w = frag.scissorScale[1] },
+        .extentRadiusFeather = .{ .x = frag.extent[0], .y = frag.extent[1], .z = frag.radius, .w = frag.feather },
+        .params = .{ .x = frag.strokeMult, .y = frag.strokeThr, .z = frag.texType, .w = frag.shader_type },
     };
-    sg.applyUniforms(shaders.UB_fs_params, &sg.Range{ .ptr = &fs_params, .size = @sizeOf(@TypeOf(fs_params)) });
+    sg.applyUniforms(shaders.UB_fs_params, sg.Range{ .ptr = &fs_params, .size = @sizeOf(@TypeOf(fs_params)) });
 
     if (image != 0) {
         if (findTexture(ctx, image)) |tex| {
@@ -361,7 +361,7 @@ fn setUniforms(ctx: *Context, uniform_offset: usize, image: i32) void {
         ctx.bindings.samplers[shaders.SMP_smp] = ctx.default_sampler;
     }
 
-    sg.applyBindings(&ctx.bindings);
+    sg.applyBindings(ctx.bindings);
 }
 
 fn drawPathRangeFill(paths: []const PathItem) void {
@@ -381,12 +381,12 @@ fn fillInternal(ctx: *Context, call: *const Call) void {
 
     sg.applyPipeline(ctx.pip_fill_stencil);
     setUniforms(ctx, call.uniform_offset, 0);
-    drawPathRangeFill(ctx, paths);
+    drawPathRangeFill(paths);
 
     if (ctx.options.anti_alias) {
         sg.applyPipeline(ctx.pip_fill_antialias);
         setUniforms(ctx, call.uniform_offset + 1, call.image);
-        drawPathRangeStroke(ctx, paths);
+        drawPathRangeStroke(paths);
     }
 
     sg.applyPipeline(ctx.pip_fill_draw);
@@ -399,11 +399,11 @@ fn convexFillInternal(ctx: *Context, call: *const Call) void {
 
     sg.applyPipeline(ctx.pip_fill);
     setUniforms(ctx, call.uniform_offset, call.image);
-    drawPathRangeFill(ctx, paths);
+    drawPathRangeFill(paths);
 
     sg.applyPipeline(ctx.pip_stroke);
     setUniforms(ctx, call.uniform_offset, call.image);
-    drawPathRangeStroke(ctx, paths);
+    drawPathRangeStroke(paths);
 }
 
 fn strokeInternal(ctx: *Context, call: *const Call) void {
@@ -412,19 +412,19 @@ fn strokeInternal(ctx: *Context, call: *const Call) void {
     if (ctx.options.stencil_strokes) {
         sg.applyPipeline(ctx.pip_stroke_stencil);
         setUniforms(ctx, call.uniform_offset + 1, call.image);
-        drawPathRangeStroke(ctx, paths);
+        drawPathRangeStroke(paths);
 
         sg.applyPipeline(ctx.pip_stroke_antialias);
         setUniforms(ctx, call.uniform_offset, call.image);
-        drawPathRangeStroke(ctx, paths);
+        drawPathRangeStroke(paths);
 
         sg.applyPipeline(ctx.pip_stroke_clear);
         setUniforms(ctx, call.uniform_offset, 0);
-        drawPathRangeStroke(ctx, paths);
+        drawPathRangeStroke(paths);
     } else {
         sg.applyPipeline(ctx.pip_stroke);
         setUniforms(ctx, call.uniform_offset, call.image);
-        drawPathRangeStroke(ctx, paths);
+        drawPathRangeStroke(paths);
     }
 }
 
@@ -459,10 +459,10 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
     pip_desc.cull_mode = .BACK;
     pip_desc.face_winding = .CCW;
     pip_desc.label = "snvg-pip-fill";
-    ctx.pip_fill = sg.makePipeline(&pip_desc);
+    ctx.pip_fill = sg.makePipeline(pip_desc);
 
     pip_desc.label = "snvg-pip-triangles";
-    ctx.pip_triangles = sg.makePipeline(&pip_desc);
+    ctx.pip_triangles = sg.makePipeline(pip_desc);
 
     pip_desc.colors[0].write_mask = .NONE;
     pip_desc.stencil = .{
@@ -485,7 +485,7 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
     };
     pip_desc.cull_mode = .NONE;
     pip_desc.label = "snvg-pip-fill-stencil";
-    ctx.pip_fill_stencil = sg.makePipeline(&pip_desc);
+    ctx.pip_fill_stencil = sg.makePipeline(pip_desc);
 
     pip_desc.primitive_type = .TRIANGLE_STRIP;
     pip_desc.colors[0].write_mask = .RGBA;
@@ -516,7 +516,7 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
     };
     pip_desc.cull_mode = .BACK;
     pip_desc.label = "snvg-pip-fill-antialias";
-    ctx.pip_fill_antialias = sg.makePipeline(&pip_desc);
+    ctx.pip_fill_antialias = sg.makePipeline(pip_desc);
 
     pip_desc.stencil = .{
         .enabled = true,
@@ -537,11 +537,11 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
         .ref = 0,
     };
     pip_desc.label = "snvg-pip-fill-draw";
-    ctx.pip_fill_draw = sg.makePipeline(&pip_desc);
+    ctx.pip_fill_draw = sg.makePipeline(pip_desc);
 
     pip_desc.stencil.enabled = false;
     pip_desc.label = "snvg-pip-stroke";
-    ctx.pip_stroke = sg.makePipeline(&pip_desc);
+    ctx.pip_stroke = sg.makePipeline(pip_desc);
 
     pip_desc.stencil = .{
         .enabled = true,
@@ -562,14 +562,14 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
         .ref = 0,
     };
     pip_desc.label = "snvg-pip-stroke-stencil";
-    ctx.pip_stroke_stencil = sg.makePipeline(&pip_desc);
+    ctx.pip_stroke_stencil = sg.makePipeline(pip_desc);
 
     pip_desc.stencil.front.compare = .EQUAL;
     pip_desc.stencil.back.compare = .EQUAL;
     pip_desc.stencil.front.pass_op = .KEEP;
     pip_desc.stencil.back.pass_op = .KEEP;
     pip_desc.label = "snvg-pip-stroke-antialias";
-    ctx.pip_stroke_antialias = sg.makePipeline(&pip_desc);
+    ctx.pip_stroke_antialias = sg.makePipeline(pip_desc);
 
     pip_desc.colors[0].write_mask = .NONE;
     pip_desc.stencil = .{
@@ -591,9 +591,9 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
         .ref = 0,
     };
     pip_desc.label = "snvg-pip-stroke-clear";
-    ctx.pip_stroke_clear = sg.makePipeline(&pip_desc);
+    ctx.pip_stroke_clear = sg.makePipeline(pip_desc);
 
-    ctx.vbuf = sg.makeBuffer(&sg.BufferDesc{
+    ctx.vbuf = sg.makeBuffer(sg.BufferDesc{
         .usage = .{
             .vertex_buffer = true,
             .stream_update = true,
@@ -603,7 +603,7 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
         .label = "snvg-vbuf",
     });
 
-    ctx.default_sampler = sg.makeSampler(&sg.SamplerDesc{
+    ctx.default_sampler = sg.makeSampler(sg.SamplerDesc{
         .min_filter = .LINEAR,
         .mag_filter = .LINEAR,
         .mipmap_filter = .NEAREST,
@@ -613,17 +613,19 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
     });
 
     const white: u32 = 0xFFFFFFFF;
-    ctx.dummy_tex = sg.makeImage(&sg.ImageDesc{
+    var image_data = sg.ImageData{};
+    image_data.mip_levels[0] = .{ .ptr = &white, .size = @sizeOf(u32) };
+    ctx.dummy_tex = sg.makeImage(sg.ImageDesc{
         .width = 1,
         .height = 1,
         .pixel_format = .RGBA8,
         .usage = .{ .immutable = true },
-        .data = .{ .mip_levels = .{.{ .ptr = &white, .size = @sizeOf(u32) }} },
+        .data = image_data,
         .label = "snvg-dummy",
     });
     if (ctx.dummy_tex.id == sg.invalid_id) return error.ImageCreationFailed;
 
-    ctx.dummy_view = sg.makeView(&sg.ViewDesc{
+    ctx.dummy_view = sg.makeView(sg.ViewDesc{
         .texture = .{ .image = ctx.dummy_tex },
         .label = "snvg-dummy-view",
     });
@@ -662,13 +664,13 @@ fn renderCreateTexture(uptr: *anyopaque, tex_type: internal.TextureType, w: u32,
         img_desc.num_mipmaps = 0;
     }
 
-    tex.img = sg.makeImage(&img_desc);
+    tex.img = sg.makeImage(img_desc);
     if (tex.img.id == sg.invalid_id) {
         tex.* = .{};
         return error.TextureCreationFailed;
     }
 
-    tex.view = sg.makeView(&sg.ViewDesc{
+    tex.view = sg.makeView(sg.ViewDesc{
         .texture = .{ .image = tex.img },
         .label = "snvg-texture-view",
     });
@@ -688,7 +690,7 @@ fn renderCreateTexture(uptr: *anyopaque, tex_type: internal.TextureType, w: u32,
         mag_filter = .NEAREST;
     }
 
-    tex.sampler = sg.makeSampler(&sg.SamplerDesc{
+    tex.sampler = sg.makeSampler(sg.SamplerDesc{
         .min_filter = min_filter,
         .mag_filter = mag_filter,
         .mipmap_filter = mip_filter,
@@ -767,7 +769,7 @@ fn renderFlush(uptr: *anyopaque) void {
     flushTextureUpdates(ctx);
 
     if (ctx.calls.items.len > 0) {
-        sg.updateBuffer(ctx.vbuf, &sg.Range{ .ptr = ctx.verts.items.ptr, .size = ctx.verts.items.len * @sizeOf(internal.Vertex) });
+        sg.updateBuffer(ctx.vbuf, sg.Range{ .ptr = ctx.verts.items.ptr, .size = ctx.verts.items.len * @sizeOf(internal.Vertex) });
         for (ctx.calls.items) |call| {
             switch (call.type_) {
                 .fill => fillInternal(ctx, &call),

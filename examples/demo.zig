@@ -3,12 +3,6 @@ const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
-const use_webgl = builtin.cpu.arch.isWasm();
-const gl = if (use_webgl)
-    @import("web/webgl.zig")
-else
-    @import("glfw_gl");
-
 const nvg = @import("nanovg");
 
 const Demo = @This();

@@ -5,6 +5,8 @@ pub const internal = @import("internal.zig");
 
 /// OpenGL backend provided by default
 pub const gl = @import("nanovg_gl.zig");
+// pub const sokol = @import("nanovg_sokol.zig");
+pub const sokol = @import("nanovg_sokol-gpt.zig");
 
 const Self = @This();
 

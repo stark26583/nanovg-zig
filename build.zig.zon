@@ -3,7 +3,12 @@
     .version = "0.1.0",
     .fingerprint = 0x84abd4315eb3f875,
     .minimum_zig_version = "0.14.1",
-    .dependencies = .{},
+    .dependencies = .{
+        .sokol = .{
+            .url = "git+https://github.com/floooh/sokol-zig#af19e50f48529a19ad3a2f594feb85646ed5da3c",
+            .hash = "sokol-0.1.0-pb1HK3BiNwASzoMACS5oMYksjai_zp6YxRCzt46g4Z03",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

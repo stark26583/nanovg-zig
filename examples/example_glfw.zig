@@ -1,10 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const c = @cImport({
-    @cInclude("glad/glad.h");
-    @cInclude("GLFW/glfw3.h");
-});
+const c = @import("glfw_gl");
 
 const Demo = @import("demo.zig");
 const PerfGraph = @import("perf.zig");
@@ -32,7 +29,7 @@ pub fn main() !void {
     var window: ?*c.GLFWwindow = null;
     var prevt: f64 = 0;
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa = std.heap.DebugAllocator(.{}){};
     const allocator = if (builtin.mode == .Debug) gpa.allocator() else std.heap.c_allocator;
 
     if (c.glfwInit() == c.GLFW_FALSE) {

@@ -7,9 +7,7 @@ const use_webgl = builtin.cpu.arch.isWasm();
 const gl = if (use_webgl)
     @import("web/webgl.zig")
 else
-    @cImport({
-        @cInclude("glad/glad.h");
-    });
+    @import("glfw_gl");
 
 const nvg = @import("nanovg");
 

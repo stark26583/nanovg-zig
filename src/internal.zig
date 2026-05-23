@@ -2,12 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.array_list.Managed;
 
-const c = @cImport({
-    @cDefine("FONS_NO_STDIO", "1");
-    @cInclude("fontstash.h");
-    @cDefine("STBI_NO_STDIO", "1");
-    @cInclude("stb_image.h");
-});
+const c = @import("c");
 
 const nvg = @import("nanovg.zig");
 const Color = nvg.Color;
@@ -34,7 +29,7 @@ pub const Context = struct {
     dist_tol: f32,
     device_px_ratio: f32 = 1,
     fs: ?*c.FONScontext = null,
-    font_images: [4]i32 = [_]i32{0} ** 4,
+    font_images: [4]i32 = @splat(0),
     font_image_idx: u32 = 0,
     draw_call_count: u32 = 0,
     fill_tri_count: u32 = 0,
@@ -1885,7 +1880,7 @@ const PathCache = struct {
     points: ArrayList(Point),
     paths: ArrayList(Path),
     verts: ArrayList(Vertex),
-    bounds: [4]f32 = [_]f32{0} ** 4,
+    bounds: [4]f32 = @splat(0),
 
     fn init(allocator: Allocator) !PathCache {
         var cache = PathCache{

@@ -19,7 +19,7 @@ var video_height: f32 = 720;
 var video_scale: f32 = 1;
 
 var global_arena: std.heap.ArenaAllocator = undefined;
-var gpa: std.heap.GeneralPurposeAllocator(.{
+var gpa: std.heap.DebugAllocator(.{
     .safety = false,
 }) = undefined;
 var allocator: std.mem.Allocator = undefined;

@@ -1,8 +1,15 @@
 const std = @import("std");
 
+var glfwgl: *std.Build.Module = undefined;
+
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const dep_sokol = b.dependency("sokol", .{
+        .target = target,
+        .optimize = optimize,
+    });
 
     const nanovg_mod = b.addModule("nanovg", .{
         .root_source_file = b.path("src/nanovg.zig"),
@@ -10,6 +17,24 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = !target.result.cpu.arch.isWasm(),
     });
+    nanovg_mod.addImport("sokol", dep_sokol.module("sokol"));
+
+    const glfwglc = b.addTranslateC(.{
+        .root_source_file = b.path("src/glfw_dep/glfw_glad.c"),
+        .target = target,
+        .optimize = optimize,
+    });
+    glfwglc.addIncludePath(b.path("lib/gl2/include"));
+    glfwgl = glfwglc.createModule();
+
+    const c = b.addTranslateC(.{
+        .root_source_file = b.path("src/import.c"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    nanovg_mod.addImport("c", c.createModule());
+    nanovg_mod.addImport("glfw_gl", glfwgl);
     nanovg_mod.addIncludePath(b.path("src"));
     nanovg_mod.addIncludePath(b.path("lib/gl2/include"));
     nanovg_mod.addCSourceFile(.{ .file = b.path("src/fontstash.c"), .flags = &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" } });
@@ -45,29 +70,30 @@ fn installDemo(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bu
         demo.rdynamic = true;
         demo.entry = .disabled;
     } else {
-        demo.addIncludePath(b.path("lib/gl2/include"));
-        demo.addCSourceFile(.{ .file = b.path("lib/gl2/src/glad.c"), .flags = &.{} });
+        demo.root_module.addImport("glfw_gl", glfwgl);
+        demo.root_module.addIncludePath(b.path("lib/gl2/include"));
+        demo.root_module.addCSourceFile(.{ .file = b.path("lib/gl2/src/glad.c"), .flags = &.{} });
         switch (target.result.os.tag) {
             .windows => {
                 b.installBinFile("glfw3.dll", "glfw3.dll");
-                demo.linkSystemLibrary("glfw3dll");
-                demo.linkSystemLibrary("opengl32");
+                demo.root_module.linkSystemLibrary("glfw3dll", .{});
+                demo.root_module.linkSystemLibrary("opengl32", .{});
             },
             .macos => {
-                demo.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-                demo.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
-                demo.linkSystemLibrary("glfw");
-                demo.linkFramework("OpenGL");
+                demo.root_module.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
+                demo.root_module.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/lib" });
+                demo.root_module.linkSystemLibrary("glfw", .{});
+                demo.root_module.linkFramework("OpenGL", .{});
             },
             .linux => {
-                demo.linkSystemLibrary("glfw3");
-                demo.linkSystemLibrary("GL");
-                demo.linkSystemLibrary("X11");
+                demo.root_module.linkSystemLibrary("glfw3", .{});
+                demo.root_module.linkSystemLibrary("GL", .{});
+                demo.root_module.linkSystemLibrary("X11", .{});
             },
             else => {
                 std.log.warn("Unsupported target: {}", .{target});
-                demo.linkSystemLibrary("glfw3");
-                demo.linkSystemLibrary("GL");
+                demo.root_module.linkSystemLibrary("glfw3", .{});
+                demo.root_module.linkSystemLibrary("GL", .{});
             },
         }
     }

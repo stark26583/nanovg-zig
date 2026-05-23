@@ -401,9 +401,11 @@ fn convexFillInternal(ctx: *Context, call: *const Call) void {
     setUniforms(ctx, call.uniform_offset, call.image);
     drawPathRangeFill(paths);
 
-    sg.applyPipeline(ctx.pip_stroke);
-    setUniforms(ctx, call.uniform_offset, call.image);
-    drawPathRangeStroke(paths);
+    if (ctx.options.anti_alias) {
+        sg.applyPipeline(ctx.pip_stroke);
+        setUniforms(ctx, call.uniform_offset, call.image);
+        drawPathRangeStroke(paths);
+    }
 }
 
 fn strokeInternal(ctx: *Context, call: *const Call) void {

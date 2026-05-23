@@ -37,21 +37,22 @@ pub fn build(b: *std.Build) !void {
     } else {
         // TODO: port all examples:
         // _ = installDemo(b, target, optimize, "demo_fbo", "examples/example_fbo.zig", nanovg_mod);
-        // _ = installDemo(b, target, optimize, "demo_clip", "examples/example_clip.zig", nanovg_mod);
+        _ = installDemo(b, target, optimize, "demo_clip", "examples/example_clip.zig", nanovg_mod, dep_sokol);
         // _ = installDemo(b, target, optimize, "demo_blur", "examples/example_blur.zig", nanovg_mod);
-        const demo_sokol = installDemo(b, target, optimize, "demo_sokol", nanovg_mod, dep_sokol);
+        const demo_sokol = installDemo(b, target, optimize, "demo_sokol", "examples/example_sokol.zig", nanovg_mod, dep_sokol);
 
         const run_demo_sokol = b.addRunArtifact(demo_sokol);
         const run_step_ = b.step("run", "Run the Sokol demo");
+        run_demo_sokol.step.dependOn(b.getInstallStep());
         run_step_.dependOn(&run_demo_sokol.step);
     }
 }
 
-fn installDemo(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, name: []const u8, nanovg_mod: *std.Build.Module, dep_sokol: *std.Build.Dependency) *std.Build.Step.Compile {
+fn installDemo(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, name: []const u8, path: []const u8, nanovg_mod: *std.Build.Module, dep_sokol: *std.Build.Dependency) *std.Build.Step.Compile {
     const demo = b.addExecutable(.{
         .name = name,
         .root_module = b.createModule(.{
-            .root_source_file = b.path("examples/example_sokol.zig"),
+            .root_source_file = b.path(path),
             .target = target,
             .optimize = optimize,
         }),

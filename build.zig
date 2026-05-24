@@ -7,6 +7,7 @@ pub fn build(b: *std.Build) !void {
     const dep_sokol = b.dependency("sokol", .{
         .target = target,
         .optimize = optimize,
+        .with_tracing = b.option(bool, "with_tracing", "Enable tracing in sokol") orelse false,
         .vulkan = target.result.os.tag == .linux and !target.result.abi.isAndroid(),
 
         .gles3 = target.result.abi.isAndroid(), // TODO: Android target, easy but not planned because requires extra dependency zig-android-sdk and addtional bloat.
@@ -36,9 +37,10 @@ pub fn build(b: *std.Build) !void {
         nanovg_mod.addIncludePath(b.path("src/web/libc"));
     } else {
         // TODO: port all examples:
-        // _ = installDemo(b, target, optimize, "demo_fbo", "examples/example_fbo.zig", nanovg_mod);
+        _ = installDemo(b, target, optimize, "demo_fbo", "examples/example_fbo.zig", nanovg_mod, dep_sokol);
         _ = installDemo(b, target, optimize, "demo_clip", "examples/example_clip.zig", nanovg_mod, dep_sokol);
         _ = installDemo(b, target, optimize, "demo_blur", "examples/example_blur.zig", nanovg_mod, dep_sokol);
+        _ = installDemo(b, target, optimize, "demo_sokol_", "examples/example_sokol_.zig", nanovg_mod, dep_sokol);
         const demo_sokol = installDemo(b, target, optimize, "demo_sokol", "examples/example_sokol.zig", nanovg_mod, dep_sokol);
 
         const run_demo_sokol = b.addRunArtifact(demo_sokol);

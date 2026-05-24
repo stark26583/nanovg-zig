@@ -19,6 +19,7 @@ const ShaderType = enum(u8) {
     fillimg,
     simple,
     img,
+    blur_image,
 };
 
 const CallType = enum(u8) {
@@ -73,6 +74,7 @@ const FragUniforms = extern struct {
     strokeThr: f32,
     texType: f32,
     shader_type: f32,
+    blurDir: [2]f32,
 };
 
 const ArrayList = std.array_list.Managed;
@@ -290,7 +292,12 @@ fn convertPaint(
                 _ = nvg.transformInverse(&invxform, &paint.xform);
             }
 
-            frag.shader_type = @floatFromInt(@intFromEnum(ShaderType.fillimg));
+            if (paint.blur[0] > 0 or paint.blur[1] > 0) {
+                frag.shader_type = @floatFromInt(@intFromEnum(ShaderType.blur_image));
+                frag.blurDir = paint.blur;
+            } else {
+                frag.shader_type = @floatFromInt(@intFromEnum(ShaderType.fillimg));
+            }
             if (tex.type_ == .rgba) {
                 frag.texType = if (tex.flags.premultiplied) 0.0 else 1.0;
             } else {
@@ -345,6 +352,7 @@ fn setUniforms(ctx: *Context, uniform_offset: usize, image: i32) void {
         .scissorExtScale = .{ .x = frag.scissorExt[0], .y = frag.scissorExt[1], .z = frag.scissorScale[0], .w = frag.scissorScale[1] },
         .extentRadiusFeather = .{ .x = frag.extent[0], .y = frag.extent[1], .z = frag.radius, .w = frag.feather },
         .params = .{ .x = frag.strokeMult, .y = frag.strokeThr, .z = frag.texType, .w = frag.shader_type },
+        .blurDir = .{ .x = frag.blurDir[0], .y = frag.blurDir[1], .z = 0.0, .w = 0.0 }, // NEW
     };
     sg.applyUniforms(shaders.UB_fs_params, sg.Range{ .ptr = &fs_params, .size = @sizeOf(@TypeOf(fs_params)) });
 

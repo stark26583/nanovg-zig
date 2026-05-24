@@ -695,8 +695,8 @@ pub fn imagePattern(self: Self, ox: f32, oy: f32, ex: f32, ey: f32, angle: f32, 
 // Creates and returns an image pattern.
 // (ex,ey) the size of one image. image is a handle to the image to render.
 // (blur_x,blur_y) control the blur direction. Only either can be 1.
-pub fn imageBlur(self: Self, ex: f32, ey: f32, image: Image, blur_x: f32, blur_y: f32) Paint {
-    return self.ctx.imageBlur(ex, ey, image, blur_x, blur_y);
+pub fn imageBlur(self: Self, ox: f32, oy: f32, ex: f32, ey: f32, image: Image, blur_x: f32, blur_y: f32) Paint {
+    return self.ctx.imageBlur(ox, oy, ex, ey, image, blur_x, blur_y);
 }
 
 // Creates and returns an image pattern. Parameters (ox,oy) specify the left-top location of the image pattern,

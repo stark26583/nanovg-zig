@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) !void {
         // TODO: port all examples:
         // _ = installDemo(b, target, optimize, "demo_fbo", "examples/example_fbo.zig", nanovg_mod);
         _ = installDemo(b, target, optimize, "demo_clip", "examples/example_clip.zig", nanovg_mod, dep_sokol);
-        // _ = installDemo(b, target, optimize, "demo_blur", "examples/example_blur.zig", nanovg_mod);
+        _ = installDemo(b, target, optimize, "demo_blur", "examples/example_blur.zig", nanovg_mod, dep_sokol);
         const demo_sokol = installDemo(b, target, optimize, "demo_sokol", "examples/example_sokol.zig", nanovg_mod, dep_sokol);
 
         const run_demo_sokol = b.addRunArtifact(demo_sokol);

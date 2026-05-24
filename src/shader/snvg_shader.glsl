@@ -44,6 +44,7 @@ layout(binding=1) uniform fs_params {
     vec4 scissorExtScale;  // xy = scissorExt, zw = scissorScale
     vec4 extentRadiusFeather;  // xy = extent, z = radius, w = feather
     vec4 params;  // x = strokeMult, y = strokeThr, z = texType, w = type
+    vec4 blurDir; // xy = blur step direction in UV space, zw = unused padding
 };
 
 layout(binding=0) uniform texture2D tex;
@@ -119,6 +120,23 @@ void main() {
         if (texType == 2) color = vec4(color.x);
         color *= scissor;
         result = color * innerCol;
+    } else if (type == 4) {  // Blur
+        vec2 pt = (paintMat * vec3(fpos, 1.0)).xy / extent;
+        vec2 blurD = blurDir.xy;
+        vec4 color = vec4(0.0);
+        // 9-tap Gaussian, r=4, sigma=2
+        color += texture(sampler2D(tex, smp), pt - 4.0 * blurD) * 0.02853226260337099;
+        color += texture(sampler2D(tex, smp), pt - 3.0 * blurD) * 0.06723453549491201;
+        color += texture(sampler2D(tex, smp), pt - 2.0 * blurD) * 0.12400932997922751;
+        color += texture(sampler2D(tex, smp), pt - 1.0 * blurD) * 0.17904386461741622;
+        color += texture(sampler2D(tex, smp), pt + 0.0 * blurD) * 0.20236001461014664;
+        color += texture(sampler2D(tex, smp), pt + 1.0 * blurD) * 0.17904386461741622;
+        color += texture(sampler2D(tex, smp), pt + 2.0 * blurD) * 0.12400932997922751;
+        color += texture(sampler2D(tex, smp), pt + 3.0 * blurD) * 0.06723453549491201;
+        color += texture(sampler2D(tex, smp), pt + 4.0 * blurD) * 0.02853226260337099;
+        color *= innerCol;
+        color *= strokeAlpha * scissor;
+        result = color;
     }
 
     outColor = result;

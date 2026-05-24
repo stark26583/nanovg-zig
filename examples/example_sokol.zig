@@ -80,7 +80,6 @@ export fn event(ev: [*c]const sapp.Event) void {
 }
 
 export fn frame() void {
-    // const t: f32 = @floatCast(stime.sec(stime.since(state.start_time)));
     const t: f32 = @floatCast(stime.sec(stime.now()));
     state.fps.update(@floatCast(sapp.frameDuration()));
 

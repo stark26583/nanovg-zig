@@ -43,11 +43,150 @@ const Texture = struct {
     pending_data: ?[]u8 = null,
 };
 
+// TODO:
+// pub const Framebuffer = struct {
+//     image: nvg.Image = undefined,
+//     color_att_view: sg.View = .{},
+//     depth_img: sg.Image = .{},
+//     depth_view: sg.View = .{},
+//     pass_action: sg.PassAction = .{},
+//     width: u32 = 0,
+//     height: u32 = 0,
+//
+//     pub fn create(vg: nvg, w: u32, h: u32, flags: nvg.ImageFlags) !Framebuffer {
+//         const ctx: *Context = @ptrCast(@alignCast(vg.ctx.params.user_ptr));
+//
+//         var fb: Framebuffer = .{};
+//         fb.width = w;
+//         fb.height = h;
+//
+//         // Keep the same semantics as the GL helper.
+//         // If the image shows up vertically flipped in your setup, remove flip_y.
+//         var image_flags = flags;
+//         image_flags.flip_y = true;
+//         image_flags.premultiplied = true;
+//         image_flags.generate_mipmaps = false;
+//
+//         const tex = try allocTexture(ctx);
+//         errdefer tex.* = .{};
+//
+//         const color_img = sg.makeImage(.{
+//             .width = @intCast(w),
+//             .height = @intCast(w),
+//             .usage = .{ .color_attachment = true },
+//             .label = "snvg-fb-color",
+//         });
+//         if (color_img.id == sg.invalid_id) {
+//             tex.* = .{};
+//             return error.FramebufferCreationFailed;
+//         }
+//
+//         tex.img = color_img;
+//         tex.width = w;
+//         tex.height = h;
+//         tex.type_ = .rgba;
+//         tex.flags = image_flags;
+//         tex.dirty = false;
+//         tex.pending_data = null;
+//
+//         tex.view = sg.makeView(.{
+//             .texture = .{ .image = tex.img },
+//             .label = "snvg-fb-tex-view",
+//         });
+//         if (tex.view.id == sg.invalid_id) {
+//             destroyTextureResources(ctx, tex);
+//             return error.FramebufferCreationFailed;
+//         }
+//
+//         fb.color_att_view = sg.makeView(.{
+//             .color_attachment = .{ .image = tex.img },
+//             .label = "snvg-fb-color-att-view",
+//         });
+//         if (fb.color_att_view.id == sg.invalid_id) {
+//             destroyTextureResources(ctx, tex);
+//             return error.FramebufferCreationFailed;
+//         }
+//
+//         fb.depth_img = sg.makeImage(.{
+//             .width = @intCast(w),
+//             .height = @intCast(h),
+//             .pixel_format = .DEPTH_STENCIL,
+//             .usage = .{ .depth_stencil_attachment = true },
+//             .label = "snvg-fb-depth",
+//         });
+//         if (fb.depth_img.id == sg.invalid_id) {
+//             sg.destroyView(fb.color_att_view);
+//             destroyTextureResources(ctx, tex);
+//             return error.FramebufferCreationFailed;
+//         }
+//
+//         fb.depth_view = sg.makeView(.{
+//             .depth_stencil_attachment = .{ .image = fb.depth_img },
+//             .label = "snvg-fb-depth-view",
+//         });
+//         if (fb.depth_view.id == sg.invalid_id) {
+//             sg.destroyImage(fb.depth_img);
+//             sg.destroyView(fb.color_att_view);
+//             destroyTextureResources(ctx, tex);
+//             return error.FramebufferCreationFailed;
+//         }
+//
+//         var clear_pass: sg.PassAction = .{};
+//         clear_pass.colors[0] = .{
+//             .load_action = .CLEAR,
+//             .clear_value = .{ .r = 0, .g = 0, .b = 0, .a = 0 },
+//         };
+//         clear_pass.depth = .{
+//             .load_action = .CLEAR,
+//             .clear_value = 1.0,
+//         };
+//         clear_pass.stencil = .{
+//             .load_action = .CLEAR,
+//             .clear_value = 0,
+//         };
+//         fb.pass_action = clear_pass;
+//
+//         fb.image = .{ .handle = tex.id };
+//         return fb;
+//     }
+//
+//     pub fn begin(fb: Framebuffer) void {
+//         var pass: sg.Pass = .{
+//             .action = fb.pass_action,
+//             .attachments = .{
+//                 .depth_stencil = fb.depth_view,
+//             },
+//         };
+//         pass.attachments.colors[0] = fb.color_att_view;
+//         sg.beginPass(pass);
+//     }
+//
+//     pub fn end(fb: Framebuffer) void {
+//         _ = fb;
+//         sg.endPass();
+//     }
+//
+//     pub fn delete(fb: *Framebuffer, vg: nvg) void {
+//         const ctx: *Context = @ptrCast(@alignCast(vg.ctx.params.user_ptr));
+//
+//         if (fb.depth_view.id != sg.invalid_id) sg.destroyView(fb.depth_view);
+//         if (fb.depth_img.id != sg.invalid_id) sg.destroyImage(fb.depth_img);
+//         if (fb.color_att_view.id != sg.invalid_id) sg.destroyView(fb.color_att_view);
+//
+//         if (fb.image.handle != 0) {
+//             _ = deleteTexture(ctx, fb.image.handle);
+//         }
+//
+//         fb.* = .{};
+//     }
+// };
+
 const Call = struct {
     type_: CallType = .none,
     image: i32 = 0,
     path_offset: usize = 0,
     path_count: usize = 0,
+    clip_path_count: usize = 0,
     triangle_offset: usize = 0,
     triangle_count: usize = 0,
     uniform_offset: usize = 0,
@@ -94,6 +233,10 @@ const Context = struct {
     pip_stroke_antialias: sg.Pipeline = .{},
     pip_stroke_clear: sg.Pipeline = .{},
     pip_triangles: sg.Pipeline = .{},
+    pip_clip_stencil: sg.Pipeline = .{}, // write clip winding → bits 0-6
+    pip_clip_cover: sg.Pipeline = .{}, // burn bit 7 from winding, clear 0-6
+    pip_fill_stencil_clipped: sg.Pipeline = .{}, // fill winding, only where bit 7 set
+    pip_clipped_stroke: sg.Pipeline = .{}, // draw stroke only where bit 7 set
     vbuf: sg.Buffer = .{},
     default_sampler: sg.Sampler = .{},
     dummy_tex: sg.Image = .{},
@@ -385,18 +528,42 @@ fn drawPathRangeStroke(paths: []const PathItem) void {
 }
 
 fn fillInternal(ctx: *Context, call: *const Call) void {
-    const paths = ctx.paths.items[call.path_offset .. call.path_offset + call.path_count];
+    // Clip paths come first in the path array, followed by actual fill paths.
+    const clip_paths = ctx.paths.items[call.path_offset .. call.path_offset + call.clip_path_count];
+    const paths = ctx.paths.items[call.path_offset + call.clip_path_count .. call.path_offset + call.path_count];
 
-    sg.applyPipeline(ctx.pip_fill_stencil);
-    setUniforms(ctx, call.uniform_offset, 0);
-    drawPathRangeFill(paths);
+    if (call.clip_path_count > 0) {
+        // 1. Winding-count clip shape into bits 0-6 of stencil.
+        sg.applyPipeline(ctx.pip_clip_stencil);
+        setUniforms(ctx, call.uniform_offset, 0);
+        drawPathRangeFill(clip_paths);
 
-    if (ctx.options.anti_alias) {
-        sg.applyPipeline(ctx.pip_fill_antialias);
-        setUniforms(ctx, call.uniform_offset + 1, call.image);
-        drawPathRangeStroke(paths);
+        // 2. Burn bit 7 wherever bits 0-6 are non-zero (inside clip), then zero bits 0-6.
+        //    Reuses the same bounding-box quad as the final fill draw step.
+        sg.applyPipeline(ctx.pip_clip_cover);
+        setUniforms(ctx, call.uniform_offset, 0);
+        sg.draw(@intCast(call.triangle_offset), @intCast(call.triangle_count), 1);
+
+        // 3. Winding-count fill shape into bits 0-6, but only where bit 7 is set.
+        //    Anti-alias is skipped for clipped fills — the existing pip_fill_antialias
+        //    uses EQUAL(0,0xFF) which would fire outside the clip region.
+        sg.applyPipeline(ctx.pip_fill_stencil_clipped);
+        setUniforms(ctx, call.uniform_offset, 0);
+        drawPathRangeFill(paths);
+    } else {
+        sg.applyPipeline(ctx.pip_fill_stencil);
+        setUniforms(ctx, call.uniform_offset, 0);
+        drawPathRangeFill(paths);
+
+        if (ctx.options.anti_alias) {
+            sg.applyPipeline(ctx.pip_fill_antialias);
+            setUniforms(ctx, call.uniform_offset + 1, call.image);
+            drawPathRangeStroke(paths);
+        }
     }
 
+    // 4. Draw fill where bits 0-6 are non-zero; ZERO op clears all bits including bit 7.
+    //    This step is identical for clipped and non-clipped fills.
     sg.applyPipeline(ctx.pip_fill_draw);
     setUniforms(ctx, call.uniform_offset + 1, call.image);
     sg.draw(@intCast(call.triangle_offset), @intCast(call.triangle_count), 1);
@@ -417,9 +584,25 @@ fn convexFillInternal(ctx: *Context, call: *const Call) void {
 }
 
 fn strokeInternal(ctx: *Context, call: *const Call) void {
-    const paths = ctx.paths.items[call.path_offset .. call.path_offset + call.path_count];
+    const clip_paths = ctx.paths.items[call.path_offset .. call.path_offset + call.clip_path_count];
+    const paths = ctx.paths.items[call.path_offset + call.clip_path_count .. call.path_offset + call.path_count];
 
-    if (ctx.options.stencil_strokes) {
+    if (call.clip_path_count > 0) {
+        // Burn bit 7 in clip area (same two-step sequence as fillInternal).
+        sg.applyPipeline(ctx.pip_clip_stencil);
+        setUniforms(ctx, call.uniform_offset, 0);
+        drawPathRangeFill(clip_paths);
+
+        sg.applyPipeline(ctx.pip_clip_cover);
+        setUniforms(ctx, call.uniform_offset, 0);
+        sg.draw(@intCast(call.triangle_offset), @intCast(call.triangle_count), 1);
+
+        // Draw stroke only where bit 7 is set; ZERO op clears all stencil bits.
+        // stencil_strokes is bypassed when a clip is active (mirrors GL backend behaviour).
+        sg.applyPipeline(ctx.pip_clipped_stroke);
+        setUniforms(ctx, call.uniform_offset, call.image);
+        drawPathRangeStroke(paths);
+    } else if (ctx.options.stencil_strokes) {
         sg.applyPipeline(ctx.pip_stroke_stencil);
         setUniforms(ctx, call.uniform_offset + 1, call.image);
         drawPathRangeStroke(paths);
@@ -602,6 +785,115 @@ fn renderCreate(uptr: *anyopaque) anyerror!void {
     };
     pip_desc.label = "snvg-pip-stroke-clear";
     ctx.pip_stroke_clear = sg.makePipeline(pip_desc);
+
+    // --- Clip pipelines ---
+
+    // Step 1: winding-count clip shape into bits 0-6 (TRIANGLES, no color, no cull)
+    pip_desc.primitive_type = .TRIANGLES;
+    pip_desc.cull_mode = .NONE;
+    pip_desc.colors[0].write_mask = .NONE;
+    pip_desc.stencil = .{
+        .enabled = true,
+        .front = .{
+            .compare = .ALWAYS,
+            .fail_op = .KEEP,
+            .depth_fail_op = .KEEP,
+            .pass_op = .INCR_WRAP,
+        },
+        .back = .{
+            .compare = .ALWAYS,
+            .fail_op = .KEEP,
+            .depth_fail_op = .KEEP,
+            .pass_op = .DECR_WRAP,
+        },
+        .read_mask = 0xff,
+        .write_mask = 0x7f, // only write bits 0-6
+        .ref = 0,
+    };
+    pip_desc.label = "snvg-pip-clip-stencil";
+    ctx.pip_clip_stencil = sg.makePipeline(pip_desc);
+
+    // Step 2: burn bit 7 where bits 0-6 != 0, clear bits 0-6 (TRIANGLE_STRIP cover quad)
+    pip_desc.primitive_type = .TRIANGLE_STRIP;
+    pip_desc.cull_mode = .BACK;
+    pip_desc.colors[0].write_mask = .NONE;
+    pip_desc.stencil = .{
+        .enabled = true,
+        .front = .{
+            .compare = .NOT_EQUAL,
+            .fail_op = .ZERO,
+            .depth_fail_op = .ZERO,
+            .pass_op = .REPLACE,
+        },
+        .back = .{
+            .compare = .NOT_EQUAL,
+            .fail_op = .ZERO,
+            .depth_fail_op = .ZERO,
+            .pass_op = .REPLACE,
+        },
+        .read_mask = 0x7f, // compare only bits 0-6
+        .write_mask = 0xff, // write all bits (REPLACE sets 0x80)
+        .ref = 0x80,
+    };
+    pip_desc.label = "snvg-pip-clip-cover";
+    ctx.pip_clip_cover = sg.makePipeline(pip_desc);
+
+    // Step 3: fill winding, but only pass where bit 7 is set (TRIANGLES, no color, no cull)
+    pip_desc.primitive_type = .TRIANGLES;
+    pip_desc.cull_mode = .NONE;
+    pip_desc.colors[0].write_mask = .NONE;
+    pip_desc.stencil = .{
+        .enabled = true,
+        .front = .{
+            .compare = .EQUAL,
+            .fail_op = .KEEP,
+            .depth_fail_op = .KEEP,
+            .pass_op = .INCR_WRAP,
+        },
+        .back = .{
+            .compare = .EQUAL,
+            .fail_op = .KEEP,
+            .depth_fail_op = .KEEP,
+            .pass_op = .DECR_WRAP,
+        },
+        .read_mask = 0x80, // compare only the clip bit
+        .write_mask = 0x7f, // write only bits 0-6 (preserve clip bit)
+        .ref = 0x80,
+    };
+    pip_desc.label = "snvg-pip-fill-stencil-clipped";
+    ctx.pip_fill_stencil_clipped = sg.makePipeline(pip_desc);
+
+    // Clipped stroke: draw stroke only where bit 7 set, then clear stencil (TRIANGLE_STRIP)
+    pip_desc.primitive_type = .TRIANGLE_STRIP;
+    pip_desc.cull_mode = .BACK;
+    pip_desc.colors[0].write_mask = .RGBA;
+    pip_desc.colors[0].blend = .{
+        .enabled = true,
+        .src_factor_rgb = .ONE,
+        .dst_factor_rgb = .ONE_MINUS_SRC_ALPHA,
+        .src_factor_alpha = .ONE,
+        .dst_factor_alpha = .ONE_MINUS_SRC_ALPHA,
+    };
+    pip_desc.stencil = .{
+        .enabled = true,
+        .front = .{
+            .compare = .EQUAL,
+            .fail_op = .ZERO,
+            .depth_fail_op = .ZERO,
+            .pass_op = .ZERO,
+        },
+        .back = .{
+            .compare = .EQUAL,
+            .fail_op = .ZERO,
+            .depth_fail_op = .ZERO,
+            .pass_op = .ZERO,
+        },
+        .read_mask = 0xff,
+        .write_mask = 0xff,
+        .ref = 0x80,
+    };
+    pip_desc.label = "snvg-pip-clipped-stroke";
+    ctx.pip_clipped_stroke = sg.makePipeline(pip_desc);
 
     ctx.vbuf = sg.makeBuffer(sg.BufferDesc{
         .usage = .{
@@ -826,6 +1118,7 @@ fn renderFill(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.Comp
         return;
     };
     call.path_count = clip_paths.len + paths.len;
+    call.clip_path_count = clip_paths.len;
     call.image = paint.image.handle;
 
     if (paths.len == 1 and paths[0].convex and clip_paths.len == 0) {
@@ -890,10 +1183,10 @@ fn renderFill(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.Comp
 
 fn renderStroke(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.CompositeOperationState, scissor: *internal.Scissor, bounds: [4]f32, clip_paths: []const internal.Path, paths: []const internal.Path) void {
     _ = composite_operation;
-    _ = bounds;
     const ctx: *Context = @ptrCast(@alignCast(uptr));
     const call = allocCall(ctx) catch return;
     call.type_ = .stroke;
+    call.clip_path_count = clip_paths.len;
     call.path_offset = allocPaths(ctx, clip_paths.len + paths.len) catch {
         ctx.calls.items.len -= 1;
         return;
@@ -901,9 +1194,11 @@ fn renderStroke(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.Co
     call.path_count = clip_paths.len + paths.len;
     call.image = paint.image.handle;
 
+    // Clip paths need fill geometry (for winding stencil), not stroke geometry.
     var maxverts: usize = 0;
-    for (clip_paths) |path| maxverts += path.stroke.len;
+    for (clip_paths) |path| maxverts += fanToTriCount(path.fill.len);
     for (paths) |path| maxverts += path.stroke.len;
+    if (clip_paths.len > 0) maxverts += 4; // cover quad
 
     const offset = allocVerts(ctx, maxverts) catch {
         ctx.calls.items.len -= 1;
@@ -912,17 +1207,19 @@ fn renderStroke(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.Co
 
     var v_off = offset;
     var path_idx: usize = 0;
+
+    // Store fill geometry for clip paths (used by pip_clip_stencil).
     for (clip_paths) |path| {
         const dst = &ctx.paths.items[call.path_offset + path_idx];
         dst.* = .{};
-        if (path.stroke.len > 0) {
-            dst.stroke_offset = v_off;
-            dst.stroke_count = path.stroke.len;
-            @memcpy(ctx.verts.items[v_off .. v_off + dst.stroke_count], path.stroke);
-            v_off += dst.stroke_count;
+        if (path.fill.len > 0) {
+            dst.fill_offset = v_off;
+            dst.fill_count = fanToTriangles(ctx.verts.items[v_off..], path.fill, path.fill.len);
+            v_off += dst.fill_count;
         }
         path_idx += 1;
     }
+
     for (paths) |path| {
         const dst = &ctx.paths.items[call.path_offset + path_idx];
         dst.* = .{};
@@ -935,7 +1232,25 @@ fn renderStroke(uptr: *anyopaque, paint: *nvg.Paint, composite_operation: nvg.Co
         path_idx += 1;
     }
 
-    if (ctx.options.stencil_strokes) {
+    // Bounding-box cover quad — needed for pip_clip_cover when a clip is active.
+    if (clip_paths.len > 0) {
+        call.triangle_offset = v_off;
+        call.triangle_count = 4;
+        const quad = ctx.verts.items[v_off .. v_off + 4];
+        quad[0] = .{ .x = bounds[2], .y = bounds[3], .u = 0.5, .v = 1.0 };
+        quad[1] = .{ .x = bounds[2], .y = bounds[1], .u = 0.5, .v = 1.0 };
+        quad[2] = .{ .x = bounds[0], .y = bounds[3], .u = 0.5, .v = 1.0 };
+        quad[3] = .{ .x = bounds[0], .y = bounds[1], .u = 0.5, .v = 1.0 };
+    }
+
+    // Clipped strokes bypass stencil_strokes and always use a single uniform.
+    if (clip_paths.len > 0) {
+        call.uniform_offset = allocFragUniforms(ctx, 1) catch {
+            ctx.calls.items.len -= 1;
+            return;
+        };
+        convertPaint(ctx, fragUniformPtr(ctx, call.uniform_offset), paint, scissor, 1.0, 1.0, -1.0);
+    } else if (ctx.options.stencil_strokes) {
         call.uniform_offset = allocFragUniforms(ctx, 2) catch {
             ctx.calls.items.len -= 1;
             return;
@@ -997,6 +1312,10 @@ fn renderDelete(uptr: *anyopaque) void {
     sg.destroyPipeline(ctx.pip_stroke_antialias);
     sg.destroyPipeline(ctx.pip_stroke_clear);
     sg.destroyPipeline(ctx.pip_triangles);
+    sg.destroyPipeline(ctx.pip_clip_stencil);
+    sg.destroyPipeline(ctx.pip_clip_cover);
+    sg.destroyPipeline(ctx.pip_fill_stencil_clipped);
+    sg.destroyPipeline(ctx.pip_clipped_stroke);
     sg.destroyShader(ctx.shader);
 
     ctx.textures.deinit();

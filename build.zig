@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const dep_sokol = b.dependency("sokol", .{
+    const dep_sokol = b.dependency("sokol_", .{
         .target = target,
         .optimize = optimize,
         .with_tracing = b.option(bool, "with_tracing", "Enable tracing in sokol") orelse false,
@@ -14,24 +14,11 @@ pub fn build(b: *std.Build) !void {
         .wgpu = target.result.cpu.arch.isWasm(),
     });
 
-    const nanovg_mod = b.addModule("nanovg", .{
-        .root_source_file = b.path("src/nanovg.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = !target.result.cpu.arch.isWasm(),
-    });
-    nanovg_mod.addImport("sokol", dep_sokol.module("sokol"));
-
-    const c = b.addTranslateC(.{
-        .root_source_file = b.path("src/import.c"),
+    const nanovg_mod = module(b, .{
+        .sokol = dep_sokol.module("sokol"),
         .target = target,
         .optimize = optimize,
     });
-
-    nanovg_mod.addImport("c", c.createModule());
-    nanovg_mod.addIncludePath(b.path("src"));
-    nanovg_mod.addCSourceFile(.{ .file = b.path("src/fontstash.c"), .flags = &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" } });
-    nanovg_mod.addCSourceFile(.{ .file = b.path("src/stb_image.c"), .flags = &.{ "-DSTBI_NO_STDIO", "-fno-stack-protector" } });
 
     if (target.result.cpu.arch.isWasm()) {
         nanovg_mod.addIncludePath(b.path("src/web/libc"));
@@ -48,6 +35,36 @@ pub fn build(b: *std.Build) !void {
         run_demo_sokol.step.dependOn(b.getInstallStep());
         run_step_.dependOn(&run_demo_sokol.step);
     }
+}
+
+pub fn module(
+    b: *std.Build,
+    options: struct {
+        target: std.Build.ResolvedTarget,
+        optimize: std.builtin.OptimizeMode,
+        sokol: *std.Build.Module,
+    },
+) *std.Build.Module {
+    const mod = b.addModule("nanovg", .{
+        .root_source_file = b.path("src/nanovg.zig"),
+        .target = options.target,
+        .optimize = options.optimize,
+    });
+
+    mod.addImport("sokol", options.sokol);
+
+    const c = b.addTranslateC(.{
+        .root_source_file = b.path("src/import.c"),
+        .target = options.target,
+        .optimize = options.optimize,
+    });
+
+    mod.addImport("c", c.createModule());
+    mod.addIncludePath(b.path("src"));
+    mod.addCSourceFile(.{ .file = b.path("src/fontstash.c"), .flags = &.{ "-DFONS_NO_STDIO", "-fno-stack-protector" } });
+    mod.addCSourceFile(.{ .file = b.path("src/stb_image.c"), .flags = &.{ "-DSTBI_NO_STDIO", "-fno-stack-protector" } });
+
+    return mod;
 }
 
 fn installDemo(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, name: []const u8, path: []const u8, nanovg_mod: *std.Build.Module, dep_sokol: *std.Build.Dependency) *std.Build.Step.Compile {

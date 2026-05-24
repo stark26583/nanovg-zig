@@ -4,7 +4,9 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const dep_sokol = b.dependency("sokol", .{
+    const dep_sokol_opt = b.option(*std.Build.Dependency, "sokol_dep", "Provide sokol dep for building");
+
+    const dep_sokol = if (dep_sokol_opt) |dep| dep else b.dependency("sokol", .{
         .target = target,
         .optimize = optimize,
         .vulkan = target.result.os.tag == .linux and !target.result.abi.isAndroid(),
